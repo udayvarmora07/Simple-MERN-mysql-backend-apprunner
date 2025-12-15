@@ -8,7 +8,7 @@ const getAllUsers = async (req, res) => {
             success: true,
             data: rows,
             message: 'Users fetched successfully',
-            envs: process.env.DB_HOST
+            env: process.env.NODE_ENV
         });
     } catch (error) {
         console.error('Error fetching users:', error);
