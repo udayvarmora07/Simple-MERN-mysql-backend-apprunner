@@ -156,9 +156,6 @@ const startServer = async () => {
     try {
         await initializeDatabase();
         app.listen(PORT, () => {
-            console.log(`DB_HOST: ${process.env.DB_HOST}`);
-            console.log(`DB_USER: ${process.env.DB_USER}`);
-            console.log(`DB_NAME: ${process.env.DB_NAME}`);
             console.log(`🚀 Server running on port ${PORT}`);
             console.log(`📍 Environment: ${process.env.NODE_ENV}`);
             console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL}`);
