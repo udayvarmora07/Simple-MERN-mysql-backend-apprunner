@@ -43,23 +43,32 @@ else
     # Create secrets directory if it doesn't exist
     mkdir -p /etc/nodeapp
 
-    # Run Vault Agent to fetch secrets (initial fetch)
-    echo "🔄 Running Vault Agent to fetch secrets..."
-    
     # Generate config with environment variables substituted
     envsubst < /app/vault/vault-agent-config.hcl > /tmp/vault-agent-config.hcl
-    
-    vault agent -config=/tmp/vault-agent-config.hcl -exit-after-auth
-    
-    if [ $? -eq 0 ] && [ -f "/etc/nodeapp/.env.generated" ]; then
-        echo "✅ Secrets successfully loaded from Vault"
+
+    # Start Vault Agent in background (watches for secret changes)
+    echo "🔄 Starting Vault Agent in background..."
+    vault agent -config=/tmp/vault-agent-config.hcl &
+    VAULT_AGENT_PID=$!
+
+    # Wait for initial secrets to be generated (max 60 seconds)
+    echo "⏳ Waiting for initial secrets..."
+    TIMEOUT=60
+    ELAPSED=0
+    while [ ! -f "/etc/nodeapp/.env.generated" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+        sleep 1
+        ELAPSED=$((ELAPSED + 1))
+    done
+
+    if [ -f "/etc/nodeapp/.env.generated" ]; then
+        echo "✅ Secrets loaded from Vault"
     else
-        echo "❌ Failed to load secrets from Vault"
+        echo "❌ Timeout waiting for Vault secrets"
+        kill $VAULT_AGENT_PID 2>/dev/null || true
         exit 1
     fi
 fi
 
-echo ""
 echo "============================================"
 echo "Starting PM2..."
 echo "============================================"
@@ -72,6 +81,8 @@ if [ -f "/etc/nodeapp/.env.generated" ]; then
     set +a
 fi
 
-# Start PM2 with ecosystem config
+# Start PM2 in foreground (Vault Agent runs in background watching for changes)
 cd /app
-pm2-runtime start ecosystem.config.js --env production
+exec pm2-runtime start ecosystem.config.js --env production
+
+
