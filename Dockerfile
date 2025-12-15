@@ -29,7 +29,7 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Install Vault binary for Vault Agent (using linux_amd64 for x86_64)
-ARG VAULT_VERSION=1.15.4
+ARG VAULT_VERSION=1.21.1
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then VAULT_ARCH="amd64"; \
     elif [ "$ARCH" = "aarch64" ]; then VAULT_ARCH="arm64"; \
