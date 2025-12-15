@@ -19,19 +19,25 @@ RUN npm install
 # ============================================
 FROM node:20-alpine AS runtime
 
-# Install required tools
+# Install required tools (including gettext for envsubst, unzip for vault)
 RUN apk add --no-cache \
     curl \
     bash \
     ca-certificates \
+    gettext \
+    unzip \
     && rm -rf /var/cache/apk/*
 
-# Install Vault binary for Vault Agent
+# Install Vault binary for Vault Agent (using linux_amd64 for x86_64)
 ARG VAULT_VERSION=1.15.4
-RUN curl -fsSL https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip -o vault.zip \
-    && unzip vault.zip -d /usr/local/bin/ \
-    && rm vault.zip \
-    && chmod +x /usr/local/bin/vault
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then VAULT_ARCH="amd64"; \
+    elif [ "$ARCH" = "aarch64" ]; then VAULT_ARCH="arm64"; \
+    else VAULT_ARCH="amd64"; fi && \
+    curl -fsSL https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_${VAULT_ARCH}.zip -o vault.zip && \
+    unzip vault.zip -d /usr/local/bin/ && \
+    rm vault.zip && \
+    chmod +x /usr/local/bin/vault
 
 # Install PM2 globally
 RUN npm install -g pm2
