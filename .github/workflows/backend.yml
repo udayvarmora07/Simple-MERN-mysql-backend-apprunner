@@ -1,0 +1,106 @@
+# GitHub Actions CI/CD Pipeline for Backend
+# Builds Docker image and pushes to Amazon ECR
+# Triggers App Runner deployment
+
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1                    # TODO: Update with your AWS region
+  ECR_REPOSITORY: uday/backend       # TODO: Update with your ECR repo name
+  APP_RUNNER_SERVICE_ARN: "arn:aws:apprunner:ap-south-1:073015045369:service/uday-backend/56811459709f4944a1d7f670d38aa59b"               # TODO: Update with your App Runner service ARN
+
+jobs:
+  # ============================================
+  # Build and Push Docker Image to ECR
+  # ============================================
+  build-and-push:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC authentication
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # TODO: Configure one of the following authentication methods:
+          # Option 1: OIDC (Recommended)
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          # Option 2: Access Keys (uncomment below, comment OIDC above)
+          # aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          # aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build Docker image
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          
+          # Push both tags
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          
+          # Output image URI for downstream jobs
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Deploy to AWS App Runner
+  # ============================================
+  deploy:
+    name: Deploy to App Runner
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to App Runner
+        run: |
+          # TODO: Uncomment and configure when App Runner service is created
+          # aws apprunner start-deployment \
+          #   --service-arn ${{ env.APP_RUNNER_SERVICE_ARN }}
+          
+          echo "✅ Image pushed: ${{ needs.build-and-push.outputs.image-uri }}"
+          echo "ℹ️  Configure APP_RUNNER_SERVICE_ARN to enable auto-deployment"
