@@ -17,7 +17,7 @@
 
 ## 1. Architecture Overview
 
-![AWS Architecture Diagram](architecture-diagram.png)
+![AWS Architecture Diagram](https://raw.githubusercontent.com/udayvarmora07/Simple-MERN-mysql-backend-apprunner/main/docs/architecture-diagram.png)
 
 ---
 
